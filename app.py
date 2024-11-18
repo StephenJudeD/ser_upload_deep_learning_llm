@@ -142,7 +142,7 @@ def predict_with_onnx_model(model, features):
     prediction = model.run([label_name], {input_name: features})
     return prediction[0]
 
-def predict_emotion(audio_file, scaler, window_size=3.0, hop_size=1.0):
+def predict_emotion(audio_file, scaler, window_size=2.0, hop_size=0.5):
     """Predict emotions from audio file"""
     try:
         data, sr = librosa.load(audio_file, sr=16000)
