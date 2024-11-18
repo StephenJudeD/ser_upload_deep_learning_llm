@@ -32,6 +32,10 @@ def load_models():
     ensemble_models = []
     ensemble_paths = [
         "onnx_multi_model5a.onnx",
+        "onnx_multi_model4a.onnx",
+        "onnx_multi_model3a.onnx",
+        "onnx_multi_model2a.onnx",
+        "onnx_multi_model1a.onnx",
     ]
 
     bucket_name = "ser_models"
@@ -142,7 +146,7 @@ def predict_with_onnx_model(model, features):
     prediction = model.run([label_name], {input_name: features})
     return prediction[0]
 
-def predict_emotion(audio_file, scaler, window_size=2.0, hop_size=0.5):
+def predict_emotion(audio_file, scaler, window_size=3.0, hop_size=0.75):
     """Predict emotions from audio file"""
     try:
         data, sr = librosa.load(audio_file, sr=16000)
