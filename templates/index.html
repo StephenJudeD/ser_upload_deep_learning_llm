@@ -7,16 +7,19 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Voice Emotion Recognition</h1>
-    
-    <!-- Input for any audio upload -->
-    <input type="file" id="audioInput" accept="audio/*" name="audio">
-    <button id="uploadButton">Upload Audio</button>
-    <button id="predictButton" style="display:none;">Predict Emotion</button> <!-- Initially hidden -->
+    <header>
+        <h1>Voice Emotion Recognition</h1>
+    </header>
 
-    <div id="status"></div> <!-- Status messages -->
-    <audio id="audioPlayback" controls></audio> <!-- Playback the audio -->
-    <div id="response"></div> <!-- Area to display predictions -->
+    <main>
+        <input type="file" id="audioInput" accept="audio/*" name="audio">
+        <button id="uploadButton">Upload Audio</button>
+        <button id="predictButton" style="display:none;">Predict Emotion</button>
+
+        <div id="status" aria-live="assertive"></div>
+        <audio id="audioPlayback" controls></audio>
+        <div id="response"></div>
+    </main>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
