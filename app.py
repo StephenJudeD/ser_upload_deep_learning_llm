@@ -122,6 +122,29 @@ def trim_silences(data, sr, top_db=35):
         logger.error(f"Error trimming silences: {str(e)}")
         raise
 
+def prepare_audio_length(data, sr, target_duration=3):
+    """Prepare audio to be exactly 3 seconds only if it's shorter"""
+    target_length = sr * target_duration
+    current_length = len(data)
+    
+    # Only process if audio is shorter than target duration
+    if current_length < target_length:
+        if len(data) < sr:  # If less than 1 second
+            # Use time stretching for very short audio
+            data = librosa.effects.time_stretch(data, rate=len(data)/(sr*target_duration))
+            # Ensure exact length
+            if len(data) > target_length:
+                return data[:target_length]
+            elif len(data) < target_length:
+                return np.pad(data, (0, target_length - len(data)), mode='wrap')
+        else:
+            # For 1-3 seconds, just pad with repetition
+            repetitions = int(np.ceil(target_length / current_length))
+            data_repeated = np.tile(data, repetitions)
+            return data_repeated[:target_length]
+    
+    return data  # Return original data if it's 3 seconds or longer
+
 def generate_windows(data, window_size, hop_size, sr):
     """Generate sliding windows from audio data"""
     try:
@@ -152,6 +175,9 @@ def predict_emotion(audio_file, scaler, window_size=3.0, hop_size=0.75):
         data, sr = librosa.load(audio_file, sr=16000)
         data = trim_silences(data, sr)
         data = normalize_audio(data)
+        
+        # Add preprocessing for short audio
+        data = prepare_audio_length(data, sr, target_duration=3)
 
         windows = generate_windows(data, window_size, hop_size, sr)
 
