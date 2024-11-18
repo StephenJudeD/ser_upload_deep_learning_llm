@@ -1,82 +1,93 @@
-document.getElementById('uploadButton').addEventListener('click', uploadAudio);
-document.getElementById('predictButton').addEventListener('click', fetchPredictions); // Fetch predictions when clicked
+// Event listeners for upload and predict buttons
+document.getElementById('uploadButton').addEventListener('click', handleUpload);
+document.getElementById('predictButton').addEventListener('click', handlePredict);
 
 // Function to handle audio file upload
-async function uploadAudio() {
-    const audioFileInput = document.getElementById('audioInput');
-    const audioFile = audioFileInput.files[0];
-
-    if (!audioFile) {
-        document.getElementById("status").innerText = "Please select an audio file.";
-        return;
-    }
-
-    const audioUrl = URL.createObjectURL(audioFile);
-    document.getElementById('audioPlayback').src = audioUrl;
-
-    const formData = new FormData();
-    formData.append("audio", audioFile);
-
+async function handleUpload() {
     try {
-        const response = await fetch('/process_audio', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error("Network response was not ok");
+        const audioFile = getAudioFile();
+        if (!audioFile) {
+            showStatusMessage("Please select an audio file.");
+            return;
         }
 
-        const result = await response.json();
+        const formData = createFormData(audioFile);
+        const result = await processAudio(formData);
         displayResults(result);
-        
-        // Show the Predict Emotion button after successful upload
-        document.getElementById("predictButton").style.display = 'block'; 
 
-        document.getElementById("status").innerText = "Audio uploaded successfully.";
+        showPredictButton();
+        showStatusMessage("Audio uploaded successfully.");
     } catch (error) {
-        document.getElementById('response').innerText = "Error: " + error.message;
+        showErrorMessage("Error uploading audio: " + error.message);
     }
 }
 
-// Fetch predictions from the server
-async function fetchPredictions() {
-    const audioFileInput = document.getElementById('audioInput');
-    const audioFile = audioFileInput.files[0];
-
-    if (!audioFile) {
-        document.getElementById("status").innerText = "No audio file uploaded for prediction.";
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append("audio", audioFile);
-
+// Function to handle fetching predictions
+async function handlePredict() {
     try {
-        const response = await fetch('/process_audio', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error("Network response was not ok");
+        const audioFile = getAudioFile();
+        if (!audioFile) {
+            showStatusMessage("No audio file uploaded for prediction.");
+            return;
         }
 
-        const result = await response.json();
+        const formData = createFormData(audioFile);
+        const result = await processAudio(formData);
         displayResults(result);
-        document.getElementById("status").innerText = "Predictions fetched successfully.";
+
+        showStatusMessage("Predictions fetched successfully.");
     } catch (error) {
-        document.getElementById('response').innerText = "Prediction Error: " + error.message;
+        showErrorMessage("Prediction Error: " + error.message);
     }
 }
 
-// Function to display results
+// Helper function to get the selected audio file
+function getAudioFile() {
+    const audioFileInput = document.getElementById('audioInput');
+    return audioFileInput.files[0];
+}
+
+// Helper function to create FormData object with audio file
+function createFormData(audioFile) {
+    const formData = new FormData();
+    formData.append("audio", audioFile);
+    return formData;
+}
+
+// Function to process audio file on the server
+async function processAudio(formData) {
+    const response = await fetch('/process_audio', {
+        method: 'POST',
+        body: formData
+    });
+
+    if (!response.ok) {
+        throw new Error("Network response was not ok");
+    }
+
+    return await response.json();
+}
+
+// Function to display results on the page
 function displayResults(result) {
     const responseDiv = document.getElementById('response');
     responseDiv.innerHTML = `
         <h2>Predictions:</h2>
         <p><strong>Emotion Probabilities:</strong> ${JSON.stringify(result["Emotion Probabilities"], null, 2)}</p>
         <p><strong>Transcription:</strong> ${result["Transcription"]}</p>
-        <p><strong>LLM Interpretation:</strong> ${result["LLM Interpretation"]}</p> <!-- Here -->
+        <p><strong>LLM Interpretation:</strong> ${result["LLM Interpretation"]}</p>
     `;
+}
+
+// Helper functions for displaying messages
+function showStatusMessage(message) {
+    document.getElementById("status").innerText = message;
+}
+
+function showErrorMessage(message) {
+    document.getElementById('response').innerText = message;
+}
+
+function showPredictButton() {
+    document.getElementById("predictButton").style.display = 'block';
 }
