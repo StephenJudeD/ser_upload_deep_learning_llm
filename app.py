@@ -32,9 +32,9 @@ def load_models():
     ensemble_models = []
     ensemble_paths = [
         "onnx_multi_model5a.onnx",
-        "onnx_multi_model4a.onnx",
+        #"onnx_multi_model4a.onnx",
         "onnx_multi_model3a.onnx",
-        "onnx_multi_model2a.onnx",
+        #"onnx_multi_model2a.onnx",
         "onnx_multi_model1a.onnx",
     ]
 
