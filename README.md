@@ -87,3 +87,42 @@ After the audio data has been prepared through feature extraction and augmentati
     -   Final Loss: 0.0666
     -   Final Validation Loss: 0.3886
     -   Evaluation: This model incorporates multi-head attention, allowing it to focus on multiple aspects of the input sequence simultaneously. While it achieves high accuracy, its validation accuracy is slightly lower than Model 3, suggesting a potential risk of overfitting. It is best suited for complex datasets where attention can significantly enhance performance.
+ 
+App Deployment
+---------------
+The Audio Emotion Recognition Application is a web-based tool designed to analyze audio recordings and detect the emotions expressed within them. Utilizing advanced machine learning models trained on various datasets, this application provides users with insights into the emotional content of audio files.
+
+Features
+--------
+
+-   Emotion Detection: Predicts emotions from uploaded audio files and returns probabilities for each emotion.
+-   Speech Transcription: Converts spoken language in audio files to text, providing a textual representation of the audio content.
+-   Emotional Content Analysis: Interprets the emotional context based on predictions and transcriptions, offering insights into the audio's emotional landscape.
+-   User-Friendly Interface: A simple web interface for easy interaction, allowing users to upload audio files and view results effortlessly.
+
+Technologies Used
+-----------------
+
+-   Backend Framework: Flask (Python)
+-   Audio Processing: librosa
+-   Machine Learning: TensorFlow (with ONNX support)
+-   Frontend: HTML, CSS, JavaScript
+
+Usage
+-----
+
+1.  Upload an Audio File: Use the interface to upload an audio file in supported formats (e.g., WAV, MP3).
+2.  View Results: After processing, the application will display the predicted emotions, transcription of the audio, and an interpretation of the emotional content.
+
+### API Endpoints
+
+-   GET /: Renders the main page where users can upload audio files.
+-   POST /process_audio: Accepts audio files and returns a JSON response containing:
+    -   `Emotion Probabilities`: A breakdown of predicted emotions with their respective probabilities.
+    -   `Transcription`: The transcribed text from the audio.
+    -   `LLM Interpretation`: Insights into the emotional content based on predictions and transcription.
+
+Conclusion
+----------
+
+The Audio Emotion Recognition Application provides a powerful and intuitive tool for analyzing audio recordings. By leveraging machine learning models and advanced audio processing techniques, users can gain valuable insights into the emotions conveyed in speech.
