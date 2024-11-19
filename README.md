@@ -17,12 +17,11 @@ The foundation of this project lies in the diverse datasets used for training ou
 -   SAVEE: The Surrey Audio-Visual Expressed Emotion dataset includes recordings of male actors expressing different emotions, contributing to the model's understanding of emotional variation in male voices.
 -   TESS: The Toronto Emotional Speech Set features emotional recordings from female actors, helping balance the dataset and enhancing the model's capability to recognize emotions across genders.
 -   CREMA-D: A crowd-sourced emotional multimodal actors dataset that includes a wide range of emotions, providing additional context and diversity in emotional expression.
--   EmoDB: The Emotional Speech Database (German) adds further linguistic diversity and emotional contexts, allowing the model to generalize better across different languages and cultural expressions.
 
 Cross Corpora Validation
 ------------------------
 
-To ensure the models can generalize well across different datasets, we employ cross corpora validation. This technique evaluates the model's performance on unseen data from different datasets, thus assessing its robustness and adaptability.
+To ensure the models can generalize well across different datasets, we employ cross corpora validation. This technique evaluates the model's performance on unseen data from different datasets, thus assessing its robustness and adaptability. EmoDB: The Emotional Speech Database (German) adds further linguistic diversity and emotional contexts, allowing the model to generalize better across different languages and cultural expressions.
 
 Feature Extraction
 ------------------
