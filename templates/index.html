@@ -3,34 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
-    <title>Speech Emotion Recognition</title>
+    <title>Voice Emotion Recognition</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <header>
-        <h1>Your Application Name</h1>
-    </header>
-    <main>
-        <section>
-            <h2>Upload Audio File</h2>
-            <form id="audioUploadForm">
-                <input type="file" id="audioFile" accept="audio/*" required>
-                <button type="submit">Upload</button>
-            </form>
-            <div id="loadingMessage" style="display: none;">Processing your request...</div>
-            <div id="errorMessage" style="color: red;"></div>
-            <audio id="audioPlayer" controls style="display: none;"></audio>
-            <button id="predictEmotionButton" style="display: none;">Predict Emotion</button>
-            <button id="makeMorePredictionsButton" style="display: none;">Make More Predictions</button>
-        </section>
-        <section id="results" style="display: none;">
-            <h2>Results</h2>
-            <div id="predictionResult"></div>
-        </section>
-    </main>
-    <footer>
-        <p>© 2023 Your Company Name</p>
-    </footer>
-    <script src="script.js"></script>
+    <h1>Voice Emotion Recognition</h1>
+    
+    <!-- Input for any audio upload -->
+    <input type="file" id="audioInput" accept="audio/*" name="audio">
+    <button id="uploadButton">Upload Audio</button>
+    <button id="predictButton" style="display:none;">Predict Emotion</button> <!-- Initially hidden -->
+
+    <div id="status"></div> <!-- Status messages -->
+    <audio id="audioPlayback" controls></audio> <!-- Playback the audio -->
+    <div id="response"></div> <!-- Area to display predictions -->
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
