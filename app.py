@@ -302,32 +302,53 @@ def process_audio():
     temp_wav = os.path.join(temp_dir, 'audio.wav')
     
     try:
+        print(f"Processing file: {audio_file.filename}")  # Debug log
+        
         if audio_file.filename.endswith('.webm'):
-            # explicit conversion for recorded WebM
+            print("Converting WebM file...")  # Debug log
             audio = AudioSegment.from_file(audio_file, format="webm")
+            
+            print(f"Original audio properties: Rate={audio.frame_rate}, Channels={audio.channels}, Width={audio.sample_width}")  # Debug log
+            
             audio = audio.set_frame_rate(16000)
             audio = audio.set_channels(1)
             audio = audio.set_sample_width(2)
+            
+            print(f"Modified audio properties: Rate={audio.frame_rate}, Channels={audio.channels}, Width={audio.sample_width}")  # Debug log
+            
             audio.export(
                 temp_wav,
                 format="wav",
                 parameters=[
-                    "-acodec", "pcm_s16le",  # Force PCM encoding
-                    "-ac", "1",              # Mono
-                    "-ar", "16000"           # 16kHz
+                    "-acodec", "pcm_s16le",
+                    "-ac", "1",
+                    "-ar", "16000"
                 ]
             )
+            print("WebM conversion completed")  # Debug log
         else:
-            # Direct save for uploaded files
+            print("Saving WAV file directly")  # Debug log
             audio_file.save(temp_wav)
         
+        # Debug: Check the converted file
+        try:
+            y, sr = librosa.load(temp_wav, sr=16000)
+            print(f"Loaded audio shape: {y.shape}, Sample rate: {sr}")  # Debug log
+            print(f"Audio min/max values: {y.min():.3f}/{y.max():.3f}")  # Debug log
+        except Exception as e:
+            print(f"Error checking audio file: {str(e)}")  # Debug log
+            
         predictions, transcription, llm_interpretation = process_audio_file(temp_wav)
         
-        return jsonify({
+        print(f"Predictions obtained: {predictions}")  # Debug log
+        
+        response = {
             "Emotion Probabilities": predictions,
             "Transcription": transcription,
             "LLM Interpretation": llm_interpretation,
-        })
+        }
+        
+        return jsonify(response)
         
     except Exception as e:
         logger.error(f"Error processing audio: {str(e)}")
