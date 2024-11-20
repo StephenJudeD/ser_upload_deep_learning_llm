@@ -308,13 +308,13 @@ def process_audio():
             print("Converting WebM file...")  # Debug log
             audio = AudioSegment.from_file(audio_file, format="webm")
             
-            print(f"Original audio properties: Rate={audio.frame_rate}, Channels={audio.channels}, Width={audio.sample_width}")  # Debug log
+            # Normalize first
+            audio = audio.normalize(headroom=0.1)
             
+            # Then set the audio properties
             audio = audio.set_frame_rate(16000)
             audio = audio.set_channels(1)
             audio = audio.set_sample_width(2)
-            
-            print(f"Modified audio properties: Rate={audio.frame_rate}, Channels={audio.channels}, Width={audio.sample_width}")  # Debug log
             
             audio.export(
                 temp_wav,
@@ -325,30 +325,24 @@ def process_audio():
                     "-ar", "16000"
                 ]
             )
-            print("WebM conversion completed")  # Debug log
         else:
             print("Saving WAV file directly")  # Debug log
             audio_file.save(temp_wav)
         
         # Debug: Check the converted file
-        try:
-            y, sr = librosa.load(temp_wav, sr=16000)
-            print(f"Loaded audio shape: {y.shape}, Sample rate: {sr}")  # Debug log
-            print(f"Audio min/max values: {y.min():.3f}/{y.max():.3f}")  # Debug log
-        except Exception as e:
-            print(f"Error checking audio file: {str(e)}")  # Debug log
+        y, sr = librosa.load(temp_wav, sr=16000)
+        print(f"Loaded audio shape: {y.shape}, Sample rate: {sr}")
+        print(f"Audio min/max values: {y.min():.3f}/{y.max():.3f}")
             
         predictions, transcription, llm_interpretation = process_audio_file(temp_wav)
         
-        print(f"Predictions obtained: {predictions}")  # Debug log
+        print(f"Predictions obtained: {predictions}")
         
-        response = {
+        return jsonify({
             "Emotion Probabilities": predictions,
             "Transcription": transcription,
             "LLM Interpretation": llm_interpretation,
-        }
-        
-        return jsonify(response)
+        })
         
     except Exception as e:
         logger.error(f"Error processing audio: {str(e)}")
