@@ -306,39 +306,38 @@ def process_audio():
         
         if is_recorded:
             print("Converting recorded audio...")
-            audio = AudioSegment.from_file(audio_file)
+            # Add debugging for incoming audio
+            audio_segment = AudioSegment.from_file(audio_file)
+            print(f"Original audio: channels={audio_segment.channels}, frame_rate={audio_segment.frame_rate}, max_dBFS={audio_segment.max_dBFS}")
             
-            # Normalize and set properties
-            audio = audio.normalize(headroom=0.1)
-            audio = audio.set_frame_rate(16000).set_channels(1)
+            # First convert to standard format
+            audio_segment = audio_segment.set_channels(1).set_frame_rate(16000)
             
-            audio.export(
+            # Add gain only if max_dBFS is too low
+            if audio_segment.max_dBFS < -20:
+                audio_segment = audio_segment.apply_gain(10)
+            
+            # Export with explicit format settings
+            audio_segment.export(
                 temp_wav,
                 format="wav",
-                parameters=["-acodec", "pcm_s16le"]
+                parameters=[
+                    "-acodec", "pcm_s16le",
+                    "-ar", "16000",
+                    "-ac", "1"
+                ]
             )
+            
+            # Debug the converted file
+            y, sr = librosa.load(temp_wav, sr=16000)
+            print(f"Converted audio stats:")
+            print(f"Shape: {y.shape}, Sample rate: {sr}")
+            print(f"Min/Max before norm: {y.min():.3f}/{y.max():.3f}")
+            print(f"RMS value: {np.sqrt(np.mean(y**2)):.3f}")
+            
         else:
             print("Processing uploaded WAV...")
             audio_file.save(temp_wav)
-        
-        # Debug logging
-        y, sr = librosa.load(temp_wav, sr=16000)
-        print(f"Loaded audio shape: {y.shape}, Sample rate: {sr}")
-        print(f"Audio min/max values: {y.min():.3f}/{y.max():.3f}")
-        
-        predictions, transcription, llm_interpretation = process_audio_file(temp_wav)
-        return jsonify({
-            "Emotion Probabilities": predictions,
-            "Transcription": transcription,
-            "LLM Interpretation": llm_interpretation,
-        })
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        if os.path.exists(temp_wav):
-            os.remove(temp_wav)
-        os.rmdir(temp_dir)
 
 if __name__ == '__main__':
     app.run(debug=True)
