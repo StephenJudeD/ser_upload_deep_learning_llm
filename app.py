@@ -339,5 +339,24 @@ def process_audio():
             print("Processing uploaded WAV...")
             audio_file.save(temp_wav)
 
+        # Process the audio file using your existing function
+        predictions, transcription, llm_interpretation = process_audio_file(temp_wav)
+        
+        return jsonify({
+            "Emotion Probabilities": predictions,
+            "Transcription": transcription,
+            "LLM Interpretation": llm_interpretation
+        })
+
+    except Exception as e:
+        print(f"Error processing audio: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+        
+    finally:
+        # Cleanup
+        if os.path.exists(temp_wav):
+            os.remove(temp_wav)
+        os.rmdir(temp_dir)
+
 if __name__ == '__main__':
     app.run(debug=True)
