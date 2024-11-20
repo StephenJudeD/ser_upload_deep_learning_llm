@@ -294,27 +294,40 @@ def index():
 
 @app.route('/process_audio', methods=['POST'])
 def process_audio():
-    # Check if an audio file is present in the request
     if 'audio' not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files['audio']
-    audio_file_path = '/tmp/' + audio_file.filename
-    audio_file.save(audio_file_path)
-
+    temp_dir = tempfile.mkdtemp()
+    temp_wav = os.path.join(temp_dir, 'audio.wav')
+    
     try:
-        # Get predictions and transcription
-        predictions, transcription, llm_interpretation = process_audio_file(audio_file_path)
-
-        response = {
+        # Just ensure consistent conversion for webm
+        if audio_file.filename.endswith('.webm'):
+            audio = AudioSegment.from_file(audio_file, format="webm")
+            audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+            audio.export(temp_wav, format="wav")
+        else:
+            audio_file.save(temp_wav)
+            
+        # Use your existing processing pipeline
+        predictions, transcription, llm_interpretation = process_audio_file(temp_wav)
+        
+        return jsonify({
             "Emotion Probabilities": predictions,
             "Transcription": transcription,
-            "LLM Interpretation": llm_interpretation,  # Include LLM interpretation here
-        }
-
-        return jsonify(response)
+            "LLM Interpretation": llm_interpretation,
+        })
+        
     except Exception as e:
+        logger.error(f"Error processing audio: {str(e)}")
         return jsonify({"error": f"Processing failed: {str(e)}"}), 500
+        
+    finally:
+        if os.path.exists(temp_wav):
+            os.remove(temp_wav)
+        if os.path.exists(temp_dir):
+            os.rmdir(temp_dir)
 
 if __name__ == '__main__':
     app.run(debug=True)
