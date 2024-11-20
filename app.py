@@ -302,15 +302,25 @@ def process_audio():
     temp_wav = os.path.join(temp_dir, 'audio.wav')
     
     try:
-        # Just ensure consistent conversion for webm
         if audio_file.filename.endswith('.webm'):
+            # explicit conversion for recorded WebM
             audio = AudioSegment.from_file(audio_file, format="webm")
-            audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
-            audio.export(temp_wav, format="wav")
+            audio = audio.set_frame_rate(16000)
+            audio = audio.set_channels(1)
+            audio = audio.set_sample_width(2)
+            audio.export(
+                temp_wav,
+                format="wav",
+                parameters=[
+                    "-acodec", "pcm_s16le",  # Force PCM encoding
+                    "-ac", "1",              # Mono
+                    "-ar", "16000"           # 16kHz
+                ]
+            )
         else:
+            # Direct save for uploaded files
             audio_file.save(temp_wav)
-            
-        # Use your existing processing pipeline
+        
         predictions, transcription, llm_interpretation = process_audio_file(temp_wav)
         
         return jsonify({
