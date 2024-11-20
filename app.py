@@ -294,50 +294,39 @@ def index():
 
 @app.route('/process_audio', methods=['POST'])
 def process_audio():
-    if 'audio' not in request.files:
-        return jsonify({"error": "No audio file provided"}), 400
-
     audio_file = request.files['audio']
     temp_dir = tempfile.mkdtemp()
     temp_wav = os.path.join(temp_dir, 'audio.wav')
     
     try:
-        print(f"Processing file: {audio_file.filename}")  # Debug log
+        print(f"Processing file: {audio_file.filename}")
         
-        if audio_file.filename.endswith('.webm'):
-            print("Converting WebM file...")  # Debug log
-            audio = AudioSegment.from_file(audio_file, format="webm")
+        # Check if it's a recorded blob (WebM) or uploaded WAV
+        is_recorded = audio_file.filename == 'blob' or audio_file.filename.endswith('.webm')
+        
+        if is_recorded:
+            print("Converting recorded audio...")
+            audio = AudioSegment.from_file(audio_file)
             
-            # Normalize first
+            # Normalize and set properties
             audio = audio.normalize(headroom=0.1)
-            
-            # Then set the audio properties
-            audio = audio.set_frame_rate(16000)
-            audio = audio.set_channels(1)
-            audio = audio.set_sample_width(2)
+            audio = audio.set_frame_rate(16000).set_channels(1)
             
             audio.export(
                 temp_wav,
                 format="wav",
-                parameters=[
-                    "-acodec", "pcm_s16le",
-                    "-ac", "1",
-                    "-ar", "16000"
-                ]
+                parameters=["-acodec", "pcm_s16le"]
             )
         else:
-            print("Saving WAV file directly")  # Debug log
+            print("Processing uploaded WAV...")
             audio_file.save(temp_wav)
         
-        # Debug: Check the converted file
+        # Debug logging
         y, sr = librosa.load(temp_wav, sr=16000)
         print(f"Loaded audio shape: {y.shape}, Sample rate: {sr}")
         print(f"Audio min/max values: {y.min():.3f}/{y.max():.3f}")
-            
+        
         predictions, transcription, llm_interpretation = process_audio_file(temp_wav)
-        
-        print(f"Predictions obtained: {predictions}")
-        
         return jsonify({
             "Emotion Probabilities": predictions,
             "Transcription": transcription,
@@ -345,14 +334,11 @@ def process_audio():
         })
         
     except Exception as e:
-        logger.error(f"Error processing audio: {str(e)}")
-        return jsonify({"error": f"Processing failed: {str(e)}"}), 500
-        
+        return jsonify({"error": str(e)}), 500
     finally:
         if os.path.exists(temp_wav):
             os.remove(temp_wav)
-        if os.path.exists(temp_dir):
-            os.rmdir(temp_dir)
+        os.rmdir(temp_dir)
 
 if __name__ == '__main__':
     app.run(debug=True)
