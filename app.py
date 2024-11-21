@@ -113,46 +113,6 @@ def normalize_audio(audio):
         logger.error(f"Error normalizing audio: {str(e)}")
         raise
 
-def sanitize_audio(audio_segment):
-    """Force audio to match SER dataset characteristics"""
-    try:
-        # Force consistent format
-        audio_segment = audio_segment.set_channels(1)
-        audio_segment = audio_segment.set_frame_rate(16000)
-        audio_segment = audio_segment.set_sample_width(2)  # 16-bit
-
-        # Convert to numpy array for processing
-        audio_array = np.array(audio_segment.get_array_of_samples()).astype(np.float32)
-        
-        # Remove DC offset
-        audio_array = audio_array - np.mean(audio_array)
-        
-        # Normalize to match typical SER dataset range
-        audio_array = audio_array / (np.max(np.abs(audio_array)) + 1e-10)
-        
-        # Apply subtle compression to match speech dynamics
-        threshold = 0.3
-        ratio = 2.0
-        audio_array = np.where(
-            np.abs(audio_array) > threshold,
-            threshold + (np.abs(audio_array) - threshold) / ratio * np.sign(audio_array),
-            audio_array
-        )
-        
-        # Convert back to 16-bit PCM
-        audio_array = np.clip(audio_array * 32767, -32768, 32767).astype(np.int16)
-        
-        # Convert back to AudioSegment
-        return AudioSegment(
-            audio_array.tobytes(), 
-            frame_rate=16000,
-            sample_width=2,
-            channels=1
-        )
-    except Exception as e:
-        logger.error(f"Error in sanitize_audio: {str(e)}")
-        raise
-
 def trim_silences(data, sr, top_db=35):
     """Remove silence from audio"""
     try:
@@ -337,35 +297,29 @@ def process_audio():
     audio_file = request.files['audio']
     temp_dir = tempfile.mkdtemp()
     temp_wav = os.path.join(temp_dir, 'audio.wav')
-    sanitized_wav = os.path.join(temp_dir, 'sanitized.wav')
     
     try:
-        logger.debug(f"Processing file: {audio_file.filename}")
+        print(f"Processing file: {audio_file.filename}")
         
         # Check if it's a recorded blob (WebM) or uploaded WAV
         is_recorded = audio_file.filename == 'blob' or audio_file.filename.endswith('.webm')
         
         if is_recorded:
-            logger.debug("Converting and sanitizing recorded audio...")
-            # Convert to AudioSegment
+            print("Converting recorded audio...")
+            # Add debugging for incoming audio
             audio_segment = AudioSegment.from_file(audio_file)
+            print(f"Original audio: channels={audio_segment.channels}, frame_rate={audio_segment.frame_rate}, max_dBFS={audio_segment.max_dBFS}")
             
-            # Log original audio properties
-            logger.debug(f"Original audio: channels={audio_segment.channels}, "
-                        f"frame_rate={audio_segment.frame_rate}, "
-                        f"max_dBFS={audio_segment.max_dBFS}")
+            # First convert to standard format
+            audio_segment = audio_segment.set_channels(1).set_frame_rate(16000)
             
-            # Sanitize the audio
-            audio_segment = sanitize_audio(audio_segment)
+            # Add gain only if max_dBFS is too low
+            if audio_segment.max_dBFS < -20:
+                audio_segment = audio_segment.apply_gain(10)
             
-            # Log sanitized audio properties
-            logger.debug(f"Sanitized audio: channels={audio_segment.channels}, "
-                        f"frame_rate={audio_segment.frame_rate}, "
-                        f"max_dBFS={audio_segment.max_dBFS}")
-            
-            # Export sanitized audio
+            # Export with explicit format settings
             audio_segment.export(
-                sanitized_wav,
+                temp_wav,
                 format="wav",
                 parameters=[
                     "-acodec", "pcm_s16le",
@@ -374,26 +328,19 @@ def process_audio():
                 ]
             )
             
-            # Debug the sanitized file
-            y, sr = librosa.load(sanitized_wav, sr=16000)
-            logger.debug(f"Sanitized audio stats:")
-            logger.debug(f"Shape: {y.shape}, Sample rate: {sr}")
-            logger.debug(f"Min/Max: {y.min():.3f}/{y.max():.3f}")
-            logger.debug(f"RMS value: {np.sqrt(np.mean(y**2)):.3f}")
-            
-            process_path = sanitized_wav
+            # Debug the converted file
+            y, sr = librosa.load(temp_wav, sr=16000)
+            print(f"Converted audio stats:")
+            print(f"Shape: {y.shape}, Sample rate: {sr}")
+            print(f"Min/Max before norm: {y.min():.3f}/{y.max():.3f}")
+            print(f"RMS value: {np.sqrt(np.mean(y**2)):.3f}")
             
         else:
-            logger.debug("Processing uploaded WAV...")
+            print("Processing uploaded WAV...")
             audio_file.save(temp_wav)
-            # Sanitize uploaded files too for consistency
-            audio_segment = AudioSegment.from_wav(temp_wav)
-            audio_segment = sanitize_audio(audio_segment)
-            audio_segment.export(sanitized_wav, format="wav")
-            process_path = sanitized_wav
 
-        # Process the sanitized audio file
-        predictions, transcription, llm_interpretation = process_audio_file(process_path)
+        # Process the audio file using your existing function
+        predictions, transcription, llm_interpretation = process_audio_file(temp_wav)
         
         return jsonify({
             "Emotion Probabilities": predictions,
@@ -402,14 +349,13 @@ def process_audio():
         })
 
     except Exception as e:
-        logger.error(f"Error processing audio: {str(e)}")
+        print(f"Error processing audio: {str(e)}")
         return jsonify({"error": str(e)}), 500
         
     finally:
         # Cleanup
-        for file in [temp_wav, sanitized_wav]:
-            if os.path.exists(file):
-                os.remove(file)
+        if os.path.exists(temp_wav):
+            os.remove(temp_wav)
         os.rmdir(temp_dir)
 
 if __name__ == '__main__':
