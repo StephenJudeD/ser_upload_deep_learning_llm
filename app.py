@@ -274,7 +274,7 @@ def get_llm_interpretation(emotional_results, transcription):
                 - Emotional recognition results: {emotional_results}
                 - Transcript: {transcription}
     
-                Your task is to provide a very succicnt and insightful interpretation of the emotional content captured in the audio data, considering both the emotion recognition results and the transcript.
+                Your task is to provide a very succinct and insightful interpretation of the emotional content captured in the audio data, considering both the emotion recognition results and the transcript.
     
                 In your response, please:
     
@@ -286,7 +286,7 @@ def get_llm_interpretation(emotional_results, transcription):
                 </thinking>
     
                 <result>
-                Based on the provided information, your succicnt and insightful interpretation of the emotional content in the audio data is:
+                Based on the provided information, your succinct and insightful interpretation of the emotional content in the audio data is:
                 </result>
             """
 
