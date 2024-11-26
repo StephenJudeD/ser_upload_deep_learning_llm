@@ -328,16 +328,16 @@ def process_audio():
         
         if is_recorded:
             print("Converting recorded audio...")
-            # Add debugging for incoming audio
+            # Load the audio with pydub
             audio_segment = AudioSegment.from_file(audio_file)
             print(f"Original audio: channels={audio_segment.channels}, frame_rate={audio_segment.frame_rate}, max_dBFS={audio_segment.max_dBFS}")
             
-            # First convert to standard format
+            # Convert to mono and set sample rate first
             audio_segment = audio_segment.set_channels(1).set_frame_rate(16000)
             
-            # Add gain only if max_dBFS is too low
-            if audio_segment.max_dBFS < -20:
-                audio_segment = audio_segment.apply_gain(10)
+            # Normalize only if needed (keeping consistent with our new approach)
+            if audio_segment.max_dBFS < -35:  # Adjusted threshold
+                audio_segment = audio_segment.normalize()
             
             # Export with explicit format settings
             audio_segment.export(
@@ -354,14 +354,13 @@ def process_audio():
             y, sr = librosa.load(temp_wav, sr=16000)
             print(f"Converted audio stats:")
             print(f"Shape: {y.shape}, Sample rate: {sr}")
-            print(f"Min/Max before norm: {y.min():.3f}/{y.max():.3f}")
-            print(f"RMS value: {np.sqrt(np.mean(y**2)):.3f}")
+            print(f"Min/Max before processing: {y.min():.3f}/{y.max():.3f}")
             
         else:
             print("Processing uploaded WAV...")
             audio_file.save(temp_wav)
 
-        # Process the audio file using your existing function
+        # Process the audio file
         predictions, transcription, llm_interpretation = process_audio_file(temp_wav)
         
         return jsonify({
