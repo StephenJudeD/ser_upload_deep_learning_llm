@@ -122,29 +122,6 @@ def trim_silences(data, sr, top_db=35):
         logger.error(f"Error trimming silences: {str(e)}")
         raise
 
-def prepare_audio_length(data, sr, target_duration=3):
-    """Prepare audio to be exactly 3 seconds only if it's shorter"""
-    target_length = sr * target_duration
-    current_length = len(data)
-    
-    # Only process if audio is shorter than target duration
-    if current_length < target_length:
-        if len(data) < sr:  # If less than 1 second
-            # Use time stretching for very short audio
-            data = librosa.effects.time_stretch(data, rate=len(data)/(sr*target_duration))
-            # Ensure exact length
-            if len(data) > target_length:
-                return data[:target_length]
-            elif len(data) < target_length:
-                return np.pad(data, (0, target_length - len(data)), mode='wrap')
-        else:
-            # For 1-3 seconds, just pad with repetition
-            repetitions = int(np.ceil(target_length / current_length))
-            data_repeated = np.tile(data, repetitions)
-            return data_repeated[:target_length]
-    
-    return data  # Return original data if it's 3 seconds or longer
-
 def generate_windows(data, window_size, hop_size, sr):
     """Generate sliding windows from audio data"""
     try:
@@ -169,46 +146,99 @@ def predict_with_onnx_model(model, features):
     prediction = model.run([label_name], {input_name: features})
     return prediction[0]
 
-def predict_emotion(audio_file, scaler, window_size=3.0, hop_size=0.75):
-    """Predict emotions from audio file"""
+def predict_emotion(audio_file, scaler, window_size=3.0, hop_size=0.5):
+    """
+    Enhanced emotion prediction with robust window handling and confidence scores
+    """
     try:
+        # Load audio
         data, sr = librosa.load(audio_file, sr=16000)
-        data = trim_silences(data, sr)
-        data = normalize_audio(data)
         
-        # Add preprocessing for short audio
-        data = prepare_audio_length(data, sr, target_duration=3)
+        # Calculate window and hop sizes in samples
+        window_length = int(window_size * sr)
+        hop_length = int(hop_size * sr)
+        
+        # Split audio into overlapping windows
+        windows = []
+        for i in range(0, len(data) - window_length + 1, hop_length):
+            window = data[i:i + window_length]
+            if len(window) == window_length:
+                try:
+                    # Process each window with exact training sequence
+                    trimmed_window, _ = librosa.effects.trim(window)
+                    normalized_window = normalize_audio(trimmed_window)
+                    
+                    # Ensure 3 seconds duration
+                    if len(normalized_window) > window_length:
+                        normalized_window = normalized_window[:window_length]
+                    else:
+                        pad_length = window_length - len(normalized_window)
+                        normalized_window = np.pad(normalized_window, (0, pad_length), 'constant')
+                    
+                    windows.append(normalized_window)
+                except Exception as trim_error:
+                    logger.warning(f"Skipping window due to: {str(trim_error)}")
+                    continue
 
-        windows = generate_windows(data, window_size, hop_size, sr)
+        # Handle case when no valid windows are found
+        if not windows:
+            try:
+                trimmed_data, _ = librosa.effects.trim(data)
+                normalized_data = normalize_audio(trimmed_data)
+                if len(normalized_data) > window_length:
+                    normalized_data = normalized_data[:window_length]
+                else:
+                    pad_length = window_length - len(normalized_data)
+                    normalized_data = np.pad(normalized_data, (0, pad_length), 'constant')
+                windows = [normalized_data]
+            except Exception as e:
+                raise ValueError(f"Error processing full audio: {str(e)}")
 
-        if len(windows) == 0:
-            return {label: "0.00%" for label in label_encoder.classes_}
-
-        emotion_probs = np.zeros(len(label_encoder.classes_))
-
+        # Process windows and get predictions
+        window_predictions = []
         for window in windows:
             features = extract_features(window, sr)
-
-            if len(features) != 153:
-                raise ValueError(f"Expected feature length of 153, but got {len(features)}")
-
+            
+            if len(features) != 153:  # Ensure correct feature dimension
+                logger.warning(f"Unexpected feature length: {len(features)}, skipping window")
+                continue
+                
             features_scaled = scaler.transform(features.reshape(1, -1))
-            window_probs = np.mean(
-                [predict_with_onnx_model(model, features_scaled) for model in ensemble_models],
-                axis=0
-            ).squeeze()
-            emotion_probs += window_probs
+            
+            # Get predictions from all models in ensemble
+            window_ensemble_preds = []
+            for model in ensemble_models:
+                pred = predict_with_onnx_model(model, features_scaled)
+                window_ensemble_preds.append(pred)
+            
+            window_pred = np.mean(window_ensemble_preds, axis=0)
+            window_predictions.append(window_pred)
 
-        emotion_probs /= len(windows)
+        if not window_predictions:
+            raise ValueError("No valid predictions obtained from any window")
 
-        emotion_probability_distribution = {
-            label: f"{prob * 100:.2f}%"
-            for label, prob in zip(label_encoder.classes_, emotion_probs)
-        }
+        # Calculate final predictions with confidence scores
+        final_prediction = np.mean(window_predictions, axis=0)
+        ensemble_std = np.std([pred for preds in window_predictions for pred in preds], axis=0)
+        window_std = np.std(window_predictions, axis=0)
+        confidence_scores = 100 * (1 - (ensemble_std + window_std) / 2)
 
-        return emotion_probability_distribution
+        # Format results with confidence scores
+        results = {}
+        for label, prob, conf in zip(label_encoder.classes_, final_prediction.squeeze(), confidence_scores):
+            if prob > 0.05:  # Only include emotions with >5% probability
+                results[label] = {
+                    'probability': f"{prob * 100:.2f}%",
+                    'confidence': f"{conf:.2f}%"
+                }
+
+        # Sort by probability
+        return dict(sorted(results.items(),
+                         key=lambda x: float(x[1]['probability'].strip('%')),
+                         reverse=True))
+
     except Exception as e:
-        logger.error(f"Error predicting emotion: {str(e)}")
+        logger.error(f"Error in emotion prediction: {str(e)}")
         raise
 
 def transcribe_audio(audio_file_path):
@@ -277,12 +307,17 @@ def get_llm_interpretation(emotional_results, transcription):
 
 
 def process_audio_file(audio_file):
-    """Process audio file and return results"""
+    """Process audio file and return results with confidence scores"""
     try:
         prediction = predict_emotion(audio_file, scaler)
         transcription = transcribe_audio(audio_file)
         llm_interpretation = get_llm_interpretation(prediction, transcription)
-        return prediction, transcription, llm_interpretation
+        
+        return {
+            "Emotion Analysis": prediction,  # Now includes probabilities and confidence scores
+            "Transcription": transcription,
+            "LLM Interpretation": llm_interpretation
+        }
     except Exception as e:
         logger.error(f"Error processing audio file: {str(e)}")
         raise
