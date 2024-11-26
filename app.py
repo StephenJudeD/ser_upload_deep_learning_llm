@@ -172,14 +172,35 @@ def predict_with_onnx_model(model, features):
 def predict_emotion(audio_file, scaler, window_size=3.0, hop_size=0.75):
     """Predict emotions from audio file"""
     try:
+        # Load audio
         data, sr = librosa.load(audio_file, sr=16000)
-        data = trim_silences(data, sr)
-        data = normalize_audio(data)
         
-        # Add preprocessing for short audio
-        data = prepare_audio_length(data, sr, target_duration=3)
+        # Calculate window parameters
+        window_length = int(window_size * sr)
+        hop_length = int(hop_size * sr)
+        
+        # Split audio into overlapping windows
+        windows = []
+        for i in range(0, len(data) - window_length + 1, hop_length):
+            window = data[i:i + window_length]
+            if len(window) == window_length:
+                # 1. Trim silences first
+                try:
+                    trimmed_window, _ = librosa.effects.trim(window)
+                except Exception as trim_error:
+                    continue  # Skip this window if trimming fails
 
-        windows = generate_windows(data, window_size, hop_size, sr)
+                # 2. Normalize after trimming
+                normalized_window = normalize_audio(trimmed_window)
+
+                # 3. Ensure 3 seconds duration (pad/truncate)
+                if len(normalized_window) > window_length:
+                    normalized_window = normalized_window[:window_length]
+                else:
+                    pad_length = window_length - len(normalized_window)
+                    normalized_window = np.pad(normalized_window, (0, pad_length), 'constant')
+
+                windows.append(normalized_window)
 
         if len(windows) == 0:
             return {label: "0.00%" for label in label_encoder.classes_}
@@ -207,6 +228,7 @@ def predict_emotion(audio_file, scaler, window_size=3.0, hop_size=0.75):
         }
 
         return emotion_probability_distribution
+
     except Exception as e:
         logger.error(f"Error predicting emotion: {str(e)}")
         raise
