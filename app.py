@@ -121,6 +121,68 @@ def trim_silences(data, sr, top_db=35):
     except Exception as e:
         logger.error(f"Error trimming silences: {str(e)}")
         raise
+def assess_audio_quality(audio_data, sr):
+    """Assess audio quality based on multiple factors"""
+    try:
+        # Calculate Signal-to-Noise Ratio (SNR)
+        signal_rms = np.sqrt(np.mean(audio_data**2))
+        noise_floor = np.sqrt(np.mean(audio_data[audio_data < np.percentile(audio_data, 10)]**2))
+        snr = 20 * np.log10(signal_rms / (noise_floor + 1e-10)) if noise_floor > 0 else 0
+
+        # Calculate Dynamic Range
+        dynamic_range = 20 * np.log10((np.max(np.abs(audio_data)) + 1e-10) / (np.min(np.abs(audio_data)) + 1e-10))
+
+        # Calculate Zero Crossing Rate
+        zcr = np.mean(librosa.feature.zero_crossing_rate(audio_data))
+
+        # Calculate Peak Amplitude
+        peak_amplitude = np.max(np.abs(audio_data))
+
+        # Quality scoring system
+        quality_score = 0
+        
+        # SNR scoring
+        if snr > 20:
+            quality_score += 2
+        elif snr > 15:
+            quality_score += 1
+
+        # Dynamic range scoring
+        if dynamic_range > 60:
+            quality_score += 2
+        elif dynamic_range > 40:
+            quality_score += 1
+
+        # ZCR scoring
+        if 0.05 <= zcr <= 0.15:
+            quality_score += 1
+
+        # Peak amplitude scoring
+        if 0.5 <= peak_amplitude <= 0.95:
+            quality_score += 1
+
+        # Determine quality level
+        if quality_score >= 5:
+            quality_level = "High"
+        elif quality_score >= 3:
+            quality_level = "Medium"
+        else:
+            quality_level = "Low"
+
+        return {
+            "level": quality_level,
+            "metrics": {
+                "snr": round(snr, 2),
+                "dynamic_range": round(dynamic_range, 2),
+                "zero_crossing_rate": round(float(zcr), 4),
+                "peak_amplitude": round(float(peak_amplitude), 4),
+                "quality_score": quality_score
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error assessing audio quality: {str(e)}")
+        return {"level": "Unknown", "metrics": {}}
+
 
 def prepare_audio_length(data, sr, target_duration=3):
     """Prepare audio to be exactly 3 seconds only if it's shorter"""
@@ -257,7 +319,7 @@ def transcribe_audio(audio_file_path):
         if os.path.exists(wav_file_path):
             os.remove(wav_file_path)
 
-def get_llm_interpretation(emotional_results, transcription):
+def get_llm_interpretation(emotional_results, transcription, audio_quality):
     openai.api_key = os.getenv('OPENAI_API_KEY')
     prompt = f"""
             You are an expert in audio emotion recognition and analysis. Given the following information:
@@ -265,23 +327,25 @@ def get_llm_interpretation(emotional_results, transcription):
                 Audio data details:
                 - Emotional recognition results: {emotional_results}
                 - Transcript: {transcription}
+                - Audio Quality: {audio_quality['level']} 
+                  (SNR: {audio_quality['metrics'].get('snr', 'N/A')}dB, 
+                   Dynamic Range: {audio_quality['metrics'].get('dynamic_range', 'N/A')}dB)
     
-                Your task is to provide a very succicnt and insightful interpretation of the emotional content captured in the audio data, considering both the emotion recognition results and the transcript.
+                Your task is to provide a very succinct and insightful interpretation of the emotional content captured in the audio data, considering the emotion recognition results, transcript, and audio quality.
     
                 In your response, please:
     
                 <thinking>
-                - Summarize the key emotions detected by the model and their relative strengths.
-                - Discuss how the emotions expressed in the transcript align with or differ from the model's predictions.
-                - Analyze any notable patterns or trends in the emotional content, especially changes in emotional state over time, differences between speakers, or contextual factors influencing the emotions.
-                - Highlight the most salient and informative aspects of the emotional data that would be valuable for understanding the overall emotional experience captured in the audio.
+                - Start with a brief comment about the audio quality and its potential impact on the analysis
+                - Summarize the key emotions detected by the model and their relative strengths
+                - Discuss how the emotions expressed in the transcript align with the model's predictions
+                - Consider how the audio quality might have affected the emotion recognition accuracy
                 </thinking>
     
                 <result>
-                Based on the provided information, your succicnt and insightful interpretation of the emotional content in the audio data is:
+                Based on the provided information, your succinct and insightful interpretation of the emotional content in the audio data is:
                 </result>
             """
-
 
     headers = {
         "Content-Type": "application/json",
@@ -298,13 +362,19 @@ def get_llm_interpretation(emotional_results, transcription):
     return response.json()['choices'][0]['message']['content']
 
 
+
 def process_audio_file(audio_file):
     """Process audio file and return results"""
     try:
+        # Load audio for quality assessment
+        data, sr = librosa.load(audio_file, sr=16000)
+        audio_quality = assess_audio_quality(data, sr)
+        
         prediction = predict_emotion(audio_file, scaler)
         transcription = transcribe_audio(audio_file)
-        llm_interpretation = get_llm_interpretation(prediction, transcription)
-        return prediction, transcription, llm_interpretation
+        llm_interpretation = get_llm_interpretation(prediction, transcription, audio_quality)
+        
+        return prediction, transcription, llm_interpretation, audio_quality
     except Exception as e:
         logger.error(f"Error processing audio file: {str(e)}")
         raise
@@ -315,6 +385,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/process_audio', methods=['POST'])
+@app.route('/process_audio', methods=['POST'])
 def process_audio():
     audio_file = request.files['audio']
     temp_dir = tempfile.mkdtemp()
@@ -323,23 +394,16 @@ def process_audio():
     try:
         print(f"Processing file: {audio_file.filename}")
         
-        # Check if it's a recorded blob (WebM) or uploaded WAV
         is_recorded = audio_file.filename == 'blob' or audio_file.filename.endswith('.webm')
         
         if is_recorded:
             print("Converting recorded audio...")
-            # Load the audio with pydub
             audio_segment = AudioSegment.from_file(audio_file)
-            print(f"Original audio: channels={audio_segment.channels}, frame_rate={audio_segment.frame_rate}, max_dBFS={audio_segment.max_dBFS}")
-            
-            # Convert to mono and set sample rate first
             audio_segment = audio_segment.set_channels(1).set_frame_rate(16000)
             
-            # Normalize only if needed (keeping consistent with our new approach)
-            if audio_segment.max_dBFS < -35:  # Adjusted threshold
+            if audio_segment.max_dBFS < -35:
                 audio_segment = audio_segment.normalize()
             
-            # Export with explicit format settings
             audio_segment.export(
                 temp_wav,
                 format="wav",
@@ -350,23 +414,17 @@ def process_audio():
                 ]
             )
             
-            # Debug the converted file
-            y, sr = librosa.load(temp_wav, sr=16000)
-            print(f"Converted audio stats:")
-            print(f"Shape: {y.shape}, Sample rate: {sr}")
-            print(f"Min/Max before processing: {y.min():.3f}/{y.max():.3f}")
-            
         else:
             print("Processing uploaded WAV...")
             audio_file.save(temp_wav)
 
-        # Process the audio file
-        predictions, transcription, llm_interpretation = process_audio_file(temp_wav)
+        predictions, transcription, llm_interpretation, audio_quality = process_audio_file(temp_wav)
         
         return jsonify({
             "Emotion Probabilities": predictions,
             "Transcription": transcription,
-            "LLM Interpretation": llm_interpretation
+            "LLM Interpretation": llm_interpretation,
+            "Audio Quality": audio_quality
         })
 
     except Exception as e:
@@ -374,7 +432,6 @@ def process_audio():
         return jsonify({"error": str(e)}), 500
         
     finally:
-        # Cleanup
         if os.path.exists(temp_wav):
             os.remove(temp_wav)
         os.rmdir(temp_dir)
