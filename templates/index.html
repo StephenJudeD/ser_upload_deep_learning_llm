@@ -12,18 +12,6 @@
             background-color: #f8f9fa;
             padding: 20px;
         }
-        .description-container {
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        .lead {
-            color: #555;
-            font-size: 1.1rem;
-            margin-bottom: 0;
-        }
         .recorder-container {
             background: white;
             border-radius: 10px;
@@ -44,52 +32,22 @@
         }
         .emotion-bar {
             height: 25px;
-            margin: 8px 0;
-            border-radius: 5px;
-            transition: width 0.8s ease-in-out;
-            color: white;
-            text-align: right;
-            padding-right: 10px;
-            line-height: 25px;
-            font-weight: 500;
-        }
-        .progress {
-            height: 25px;
-            background-color: #f0f0f0;
-            margin-left: 110px;
-            border-radius: 5px;
-        }
-        .emotion-label {
-            min-width: 100px;
-            display: inline-block;
-            font-weight: 500;
-            text-align: right;
-            margin-right: 10px;
-            color: #444;
+            margin: 5px 0;
+            transition: width 0.5s ease-in-out;
         }
         #loadingSpinner {
             display: none;
         }
-        /* Emotion-specific colors */
-        .emotion-happy { background-color: #4CAF50; }
-        .emotion-sad { background-color: #2196F3; }
-        .emotion-angry { background-color: #F44336; }
-        .emotion-neutral { background-color: #9E9E9E; }
-        .emotion-fear { background-color: #673AB7; }
-        .emotion-disgust { background-color: #795548; }
-        .emotion-surprise { background-color: #FF9800; }
+        .emotion-label {
+            min-width: 100px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1 class="text-center mb-4">Speech Emotion Analyzer 🎤</h1>
         
-        <div class="description-container mb-4 text-center">
-            <p class="lead">
-                An advanced Speech Emotion Recognition app that analyzes speech patterns using deep learning methodologies. 
-            </p>
-        </div>
-
         <div class="recorder-container text-center">
             <h3>Record or Upload Audio</h3>
             <div class="mb-3">
@@ -144,6 +102,7 @@
         const audioFileInput = document.getElementById('audioFileInput');
         const audioPlayback = document.getElementById('audioPlayback');
 
+        // Record button functionality
         recordButton.addEventListener('click', async () => {
             if (recordButton.textContent.includes('Start')) {
                 try {
@@ -157,7 +116,7 @@
 
                     mediaRecorder.onstop = () => {
                         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                        audioPlayback.src = URL.createObjectURL(audioBlob);
+                        audioPlayback.src = URL.createObjectURL(audioBlob); // Set playback source
                         processAudioData(audioBlob);
                     };
 
@@ -176,10 +135,11 @@
             }
         });
 
+        // File upload functionality
         audioFileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 const file = e.target.files[0];
-                audioPlayback.src = URL.createObjectURL(file);
+                audioPlayback.src = URL.createObjectURL(file); // Set playback source
                 processAudioData(file);
             }
         });
@@ -228,6 +188,7 @@
             const transcriptionResult = document.getElementById('transcriptionResult');
             const interpretationResult = document.getElementById('interpretationResult');
 
+            // Display emotions with progress bars
             emotionResults.innerHTML = '';
             Object.entries(data["Emotion Probabilities"]).forEach(([emotion, probability]) => {
                 const percentage = parseFloat(probability);
@@ -235,19 +196,20 @@
                 div.innerHTML = `
                     <span class="emotion-label">${emotion}:</span>
                     <div class="progress">
-                        <div class="progress-bar emotion-bar emotion-${emotion.toLowerCase()}" 
+                        <div class="progress-bar emotion-bar" 
                              role="progressbar" 
                              style="width: ${percentage}%" 
                              aria-valuenow="${percentage}" 
                              aria-valuemin="0" 
                              aria-valuemax="100">
-                            ${percentage.toFixed(1)}%
+                            ${probability}
                         </div>
                     </div>
                 `;
                 emotionResults.appendChild(div);
             });
 
+            // Display transcription and interpretation
             transcriptionResult.textContent = data.Transcription;
             interpretationResult.textContent = data["LLM Interpretation"];
 
@@ -256,3 +218,4 @@
     </script>
 </body>
 </html>
+
