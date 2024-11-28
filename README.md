@@ -15,13 +15,17 @@ The foundation of this project lies in the diverse datasets used for training ou
 
 -   RAVDESS: The Ryerson Audio-Visual Database of Emotional Speech and Song provides a rich array of emotional speech and song recordings, which serve as a primary resource for training emotion recognition models.
 -   SAVEE: The Surrey Audio-Visual Expressed Emotion dataset includes recordings of male actors expressing different emotions, contributing to the model's understanding of emotional variation in male voices.
--   TESS: The Toronto Emotional Speech Set features emotional recordings from female actors, helping balance the dataset and enhancing the model's capability to recognize emotions across genders.
--   CREMA-D: A crowd-sourced emotional multimodal actors dataset that includes a wide range of emotions, providing additional context and diversity in emotional expression.
+-   TESS: The Toronto Emotional Speech Set features emotional recordings from female actors, helping balance the dataset and enhancing the model's capability to recognize emotions across genders. https://drive.google.com/drive/folders/1qopqXkRnYUmOmW07DbetPDiacEfFg7ZW?usp=sharing
+-   CREMA-D: A crowd-sourced emotional multimodal actors dataset that includes a wide range of emotions, providing additional context and diversity in emotional expression. https://drive.google.com/drive/folders/16D_EvScAQN7zG8Mo-igSnSEj_ftHvHpC?usp=sharing
 
 Cross Corpora Validation
 ------------------------
 
-To ensure the models can generalize well across different datasets, we employ cross corpora validation. This technique evaluates the model's performance on unseen data from different datasets, thus assessing its robustness and adaptability. EmoDB: The Emotional Speech Database (German) adds further linguistic diversity and emotional contexts, allowing the model to generalize better across different languages and cultural expressions.
+To ensure the models can generalize well across different datasets, we employ cross corpora validation. This technique evaluates the model's performance on unseen data from different datasets, thus assessing its robustness and adaptability. 
+
+
+-   Emotion Speech Dataset: ESD is an Emotional Speech Database for voice conversion research. The ESD database consists of 350 parallel utterances spoken by 10 native English Speakers:  https://drive.google.com/drive/folders/1a8tBh9d95GM_84TaZ9o4OkIWa0SIrdgV?usp=sharing
+-   EmoDB: The Emotional Speech Database (German) adds further linguistic diversity and emotional contexts, allowing the model to generalize better across different languages and cultural expressions. https://drive.google.com/drive/folders/1Q4luLXPGzpM79kjex5VORk5arCzCr3jN?usp=sharing
 
 Feature Extraction
 ------------------
