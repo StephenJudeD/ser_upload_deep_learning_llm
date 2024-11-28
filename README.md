@@ -1,4 +1,4 @@
-Audio Emotion Recognition Project
+Audio Emotion Recognition Project: SER Model with Transcript and LLM Interpretation of Results
 =================================
 
 Introduction
