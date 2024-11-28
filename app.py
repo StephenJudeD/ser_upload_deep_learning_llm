@@ -183,7 +183,21 @@ def assess_audio_quality(audio_data, sr):
         logger.error(f"Error assessing audio quality: {str(e)}")
         return {"level": "Unknown", "metrics": {}}
 
+def check_audio_duration(audio_file):
+    """Check audio duration and return appropriate processing strategy"""
+    data, sr = librosa.load(audio_file, sr=16000)
+    duration = librosa.get_duration(y=data, sr=sr)
+    return duration
 
+def get_processing_strategy(duration):
+    """Determine processing strategy based on duration"""
+    if duration <= 30:  # For files up to 30 seconds
+        return "full"
+    elif duration <= 300:  # For files up to 5 minutes
+        return "chunked"
+    else:  # For files longer than 5 minutes
+        return "sampled"
+        
 def prepare_audio_length(data, sr, target_duration=3):
     """Prepare audio to be exactly 3 seconds only if it's shorter"""
     target_length = sr * target_duration
@@ -364,20 +378,49 @@ def get_llm_interpretation(emotional_results, transcription, audio_quality):
 
 
 def process_audio_file(audio_file):
-    """Process audio file and return results"""
-    try:
-        # Load audio for quality assessment
-        data, sr = librosa.load(audio_file, sr=16000)
-        audio_quality = assess_audio_quality(data, sr)
-        
-        prediction = predict_emotion(audio_file, scaler)
-        transcription = transcribe_audio(audio_file)
-        llm_interpretation = get_llm_interpretation(prediction, transcription, audio_quality)
-        
-        return prediction, transcription, llm_interpretation, audio_quality
-    except Exception as e:
-        logger.error(f"Error processing audio file: {str(e)}")
-        raise
+    duration = check_audio_duration(audio_file)
+    strategy = get_processing_strategy(duration)
+    
+    if strategy == "full":
+        return process_short_audio(audio_file)
+    elif strategy == "chunked":
+        return process_chunked_audio(audio_file)
+    else:
+        return process_sampled_audio(audio_file)
+
+def process_chunked_audio(audio_file):
+    """Process longer audio files in chunks"""
+    data, sr = librosa.load(audio_file, sr=16000)
+    chunk_size = 3 * sr  # 3-second chunks
+    overlap = 1 * sr     # 1-second overlap
+    
+    chunks = []
+    predictions = []
+    transcriptions = []
+    
+    for i in range(0, len(data), chunk_size - overlap):
+        chunk = data[i:i + chunk_size]
+        if len(chunk) >= sr:  # Process only if chunk is at least 1 second
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=True) as temp_chunk:
+                sf.write(temp_chunk.name, chunk, sr)
+                chunk_pred, chunk_trans, _, _ = process_short_audio(temp_chunk.name)
+                predictions.append(chunk_pred)
+                transcriptions.append(chunk_trans)
+    
+    # Aggregate results
+    final_prediction = aggregate_predictions(predictions)
+    final_transcription = " ".join(transcriptions)
+    
+    return final_prediction, final_transcription
+
+def aggregate_predictions(predictions):
+    """Aggregate predictions from multiple chunks"""
+    aggregated = defaultdict(float)
+    for pred in predictions:
+        for emotion, prob in pred.items():
+            aggregated[emotion] += float(prob.strip('%')) / len(predictions)
+    
+    return {emotion: f"{prob:.2f}%" for emotion, prob in aggregated.items()}
 
 @app.route('/')
 def index():
