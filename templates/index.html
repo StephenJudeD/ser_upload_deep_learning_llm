@@ -48,6 +48,25 @@
     <div class="container max-w-4xl mx-auto px-4 py-8">
         <h1 class="text-3xl md:text-4xl font-bold text-center mb-6 text-primary">Speech Emotion Analyzer 🎤</h1>
         
+        <div class="bg-primary/10 dark:bg-primary/20 rounded-xl p-4 mb-8 border-2 border-primary shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-primary mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+                <div>
+                    <h3 class="font-bold text-lg">Sample Speech Files</h3>
+                    <p class="text-gray-700 dark:text-gray-300">Download example audio clips to test the analyzer</p>
+                </div>
+            </div>
+            <a href="https://drive.google.com/drive/folders/14BU4i4zAg_XmF6lPK83EWwNhATpc1r3v" target="_blank" 
+               class="inline-flex items-center bg-primary hover:bg-secondary text-white font-medium py-2 px-4 rounded-lg transition-all duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Access Speech Samples
+            </a>
+        </div>
+        
         <div class="bg-white dark:bg-dark-300 rounded-xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700">
             <div class="flex items-center mb-4">
                 <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center mr-3">
@@ -166,16 +185,13 @@
     </div>
 
     <script>
-        // Dark mode detection
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            document.documentElement.classList.add('dark');
-        }
+        // Set dark mode as default
+        document.documentElement.classList.add('dark');
+        
+        // Still listen for system preference changes
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
-            if (event.matches) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
+            // We're keeping dark mode on regardless of system preference since user requested default dark
+            document.documentElement.classList.add('dark');
         });
 
         // Audio recording functionality
